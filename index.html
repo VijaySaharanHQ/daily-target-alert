@@ -1,509 +1,295 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="description" content="Daily Target Alert — Smart JEE & NEET Study Dashboard" />
-  <title>Daily Target Alert | JEE & NEET</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <title>Daily Target Alert V2</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <div id="toastContainer"></div>
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
+<!-- ================= LOGIN ================= -->
+<section id="loginScreen" class="screen login-screen">
+  <div class="login-card">
 
     <div class="brand">
       <div class="brand-icon">🎯</div>
-      <div>
-        <h2>TargetAlert</h2>
-        <span>JEE • NEET</span>
-      </div>
+      <h1>Daily Target Alert</h1>
+      <p>Your personal JEE / NEET study command center.</p>
     </div>
 
-    <nav>
-      <button class="nav-item active" data-section="dashboard">
-        <span>🏠</span> Dashboard
-      </button>
+    <form id="profileForm">
 
-      <button class="nav-item" data-section="targets">
-        <span>🎯</span> My Targets
-      </button>
+      <div class="input-row">
+        <div class="input-group">
+          <label>First Name</label>
+          <input id="firstName" type="text" placeholder="Vijay" required>
+        </div>
 
-      <button class="nav-item" data-section="history">
-        <span>📅</span> History
-      </button>
-
-      <button class="nav-item" data-section="analytics">
-        <span>📊</span> Analytics
-      </button>
-
-      <button class="nav-item" data-section="notes">
-        <span>📝</span> Notes
-      </button>
-
-      <button class="nav-item" data-section="settings">
-        <span>⚙️</span> Settings
-      </button>
-    </nav>
-
-    <div class="sidebar-bottom">
-      <div class="streak-card">
-        <span class="fire">🔥</span>
-        <div>
-          <strong id="sideStreak">0 Days</strong>
-          <small>Current Streak</small>
+        <div class="input-group">
+          <label>Last Name</label>
+          <input id="lastName" type="text" placeholder="Saharan" required>
         </div>
       </div>
 
-      <button class="mode-button" id="modeToggle">
-        🌙 Dark Mode
+      <div class="input-group">
+        <label>Exam Target</label>
+
+        <div class="exam-options">
+          <button type="button" class="exam-btn active" data-exam="JEE">
+            <span>🚀</span>
+            <strong>JEE</strong>
+            <small>Main + Advanced</small>
+          </button>
+
+          <button type="button" class="exam-btn" data-exam="NEET">
+            <span>🩺</span>
+            <strong>NEET</strong>
+            <small>Medical Entrance</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Target Year</label>
+        <select id="targetYear">
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+          <option value="2029">2029</option>
+        </select>
+      </div>
+
+      <button class="primary-btn full" type="submit">
+        Start My Journey →
       </button>
+
+    </form>
+
+    <p class="privacy-note">
+      🔒 Your profile is stored locally in this browser.
+    </p>
+
+  </div>
+</section>
+
+
+<!-- ================= APP ================= -->
+<section id="appScreen" class="app hidden">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+
+    <div class="logo">
+      <span>🎯</span>
+      <div>
+        <strong>Daily Target Alert</strong>
+        <small>Study Command Center</small>
+      </div>
     </div>
-  </aside>
+
+    <div class="top-actions">
+      <button id="notificationBtn" class="icon-btn" title="Notifications">🔔</button>
+      <button id="themeBtn" class="icon-btn" title="Theme">🌙</button>
+      <button id="profileBtn" class="profile-mini"></button>
+    </div>
+
+  </header>
+
 
   <!-- MAIN -->
-  <main class="main">
+  <main class="container">
 
-    <!-- TOPBAR -->
-    <header class="topbar">
-
-      <button class="mobile-menu" id="mobileMenu">☰</button>
+    <!-- GREETING -->
+    <section class="hero">
 
       <div>
-        <p class="welcome-small">Good Morning, Aspirant 👋</p>
-        <h1 id="pageTitle">Daily Dashboard</h1>
+        <span class="date-label" id="todayDate"></span>
+        <h1>Good Morning, <span id="userName"></span> 👋</h1>
+        <p id="missionText">Let's complete today's mission.</p>
       </div>
 
-      <div class="top-actions">
-
-        <button class="icon-button" id="notificationButton" title="Enable Notifications">
-          🔔
-        </button>
-
-        <div class="exam-switch">
-          <button class="exam-btn active" data-exam="JEE">JEE</button>
-          <button class="exam-btn" data-exam="NEET">NEET</button>
-        </div>
-
-      </div>
-    </header>
-
-    <!-- DASHBOARD -->
-    <section id="dashboard" class="page-section active">
-
-      <!-- HERO -->
-      <div class="hero-card">
-
-        <div class="hero-content">
-          <span class="live-badge">● LIVE STUDY DAY</span>
-
-          <h2>Make Today Count.</h2>
-
-          <p>
-            Small targets completed every day create extraordinary results.
-          </p>
-
-          <div class="date-display">
-            <span id="todayDate">Loading...</span>
-          </div>
-        </div>
-
-        <div class="hero-clock">
-          <div id="liveClock">00:00:00</div>
-          <small>Current Time</small>
-        </div>
-
-      </div>
-
-      <!-- STATS -->
-      <div class="stats-grid">
-
-        <div class="stat-card">
-          <div class="stat-icon purple">🎯</div>
-          <div>
-            <span>Total Targets</span>
-            <strong id="totalTargets">0</strong>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon green">✅</div>
-          <div>
-            <span>Completed</span>
-            <strong id="completedTargets">0</strong>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon orange">⏳</div>
-          <div>
-            <span>Remaining</span>
-            <strong id="remainingTargets">0</strong>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon blue">🔥</div>
-          <div>
-            <span>Study Streak</span>
-            <strong id="dashboardStreak">0</strong>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- PROGRESS -->
-      <div class="content-grid">
-
-        <div class="panel progress-panel">
-
-          <div class="panel-header">
-            <div>
-              <span class="eyebrow">TODAY'S PROGRESS</span>
-              <h3>Target Completion</h3>
-            </div>
-
-            <strong id="progressPercent">0%</strong>
-          </div>
-
-          <div class="progress-ring-wrapper">
-            <div class="progress-ring" id="progressRing">
-              <div class="progress-center">
-                <strong id="ringPercent">0%</strong>
-                <span>Completed</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="progress-summary">
-            <span><i class="dot green-dot"></i> Completed</span>
-            <span><i class="dot gray-dot"></i> Remaining</span>
-          </div>
-
-        </div>
-
-        <!-- COUNTDOWN -->
-        <div class="panel countdown-panel">
-
-          <div class="panel-header">
-            <div>
-              <span class="eyebrow">DEADLINE</span>
-              <h3>Today's Countdown</h3>
-            </div>
-
-            <span class="status-pill" id="deadlineStatus">ON TRACK</span>
-          </div>
-
-          <div class="countdown" id="countdown">
-            <div>
-              <strong id="hours">00</strong>
-              <span>Hours</span>
-            </div>
-
-            <b>:</b>
-
-            <div>
-              <strong id="minutes">00</strong>
-              <span>Minutes</span>
-            </div>
-
-            <b>:</b>
-
-            <div>
-              <strong id="seconds">00</strong>
-              <span>Seconds</span>
-            </div>
-          </div>
-
-          <div class="deadline-input">
-            <label>Target Deadline</label>
-            <input type="time" id="deadlineInput" value="23:00">
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- TODAY TARGETS -->
-      <div class="panel targets-panel">
-
-        <div class="panel-header">
-
-          <div>
-            <span class="eyebrow">TODAY</span>
-            <h3>Study Targets</h3>
-          </div>
-
-          <button class="primary-button" id="openAddTarget">
-            + Add Target
-          </button>
-
-        </div>
-
-        <div id="targetList" class="target-list"></div>
-
-        <div id="emptyTargets" class="empty-state">
-          <div>🎯</div>
-          <h3>No targets yet</h3>
-          <p>Add your first target and start your study session.</p>
-          <button class="primary-button" id="emptyAddButton">
-            Add Today's Target
-          </button>
-        </div>
-
+      <div class="streak-box">
+        <span>🔥</span>
+        <strong id="streakValue">0</strong>
+        <small>Day Streak</small>
       </div>
 
     </section>
 
-    <!-- TARGETS -->
-    <section id="targets" class="page-section">
 
-      <div class="section-heading">
+    <!-- CURRENT TARGET -->
+    <section class="mission-card">
+
+      <div class="mission-header">
         <div>
-          <span class="eyebrow">PLANNING</span>
-          <h2>My Targets</h2>
-          <p>Create and manage your daily study targets.</p>
+          <span class="eyebrow">YOUR MISSION NOW</span>
+          <h2 id="currentTargetTitle">No target selected</h2>
         </div>
 
-        <button class="primary-button" id="targetsAddButton">
-          + Add Target
+        <span id="currentStatus" class="status-pill">READY</span>
+      </div>
+
+      <div class="current-target-info">
+
+        <div class="target-subject">
+          <span id="currentSubjectIcon">📚</span>
+          <div>
+            <strong id="currentSubject">Subject</strong>
+            <small id="currentChapter">Chapter</small>
+          </div>
+        </div>
+
+        <div class="target-time">
+          <strong id="currentDuration">00:00</strong>
+          <small>planned focus</small>
+        </div>
+
+      </div>
+
+      <div class="mission-actions">
+        <button id="startTargetBtn" class="primary-btn">
+          ▶ Start Target
+        </button>
+
+        <button id="skipTargetBtn" class="secondary-btn">
+          Skip
         </button>
       </div>
 
-      <div id="allTargets" class="target-list"></div>
+    </section>
+
+
+    <!-- FOCUS MODE -->
+    <section id="focusPanel" class="focus-panel hidden">
+
+      <div class="focus-top">
+        <span>🔥 FOCUS MODE</span>
+        <span id="focusSubject">Physics</span>
+      </div>
+
+      <h2 id="focusTitle">Current Target</h2>
+
+      <div class="timer" id="focusTimer">
+        00:00:00
+      </div>
+
+      <div class="focus-controls">
+        <button id="pauseBtn" class="secondary-btn">⏸ Pause</button>
+        <button id="completeBtn" class="primary-btn">✓ Complete Target</button>
+      </div>
+
+      <div class="focus-progress">
+        <div id="focusProgressBar"></div>
+      </div>
+
+      <p id="focusMessage">
+        Stay focused. No distractions.
+      </p>
 
     </section>
 
-    <!-- HISTORY -->
-    <section id="history" class="page-section">
 
-      <div class="section-heading">
+    <!-- QUEUE -->
+    <section class="section">
+
+      <div class="section-title">
         <div>
-          <span class="eyebrow">YOUR JOURNEY</span>
-          <h2>Study History</h2>
-          <p>Track your consistency day by day.</p>
+          <span class="eyebrow">TARGET QUEUE</span>
+          <h2>Today's Targets</h2>
         </div>
+
+        <button id="addTargetBtn" class="small-btn">＋ Add Target</button>
       </div>
 
-      <div class="history-grid" id="historyGrid"></div>
+      <div id="targetQueue" class="target-queue"></div>
 
     </section>
 
-    <!-- ANALYTICS -->
-    <section id="analytics" class="page-section">
 
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">PERFORMANCE</span>
-          <h2>Analytics</h2>
-          <p>Understand your study consistency.</p>
-        </div>
+    <!-- STATS -->
+    <section class="stats-grid">
+
+      <div class="stat-card">
+        <span>✅</span>
+        <strong id="completedCount">0</strong>
+        <small>Completed</small>
       </div>
 
-      <div class="analytics-grid">
-
-        <div class="panel big-number">
-          <span>Total Targets Completed</span>
-          <strong id="analyticsCompleted">0</strong>
-          <small>All-time completed targets</small>
-        </div>
-
-        <div class="panel big-number">
-          <span>Best Streak</span>
-          <strong id="bestStreak">0</strong>
-          <small>Consecutive successful days</small>
-        </div>
-
-        <div class="panel big-number">
-          <span>Average Completion</span>
-          <strong id="averageCompletion">0%</strong>
-          <small>Based on saved history</small>
-        </div>
-
+      <div class="stat-card">
+        <span>⏱️</span>
+        <strong id="studyTime">0m</strong>
+        <small>Study Time</small>
       </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <span class="eyebrow">LAST 7 DAYS</span>
-            <h3>Study Activity</h3>
-          </div>
-        </div>
-
-        <div id="activityChart" class="activity-chart"></div>
+      <div class="stat-card">
+        <span>🎯</span>
+        <strong id="completionRate">0%</strong>
+        <small>Completion</small>
       </div>
 
-    </section>
-
-    <!-- NOTES -->
-    <section id="notes" class="page-section">
-
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">REFLECTION</span>
-          <h2>Study Notes</h2>
-          <p>Write your thoughts, mistakes and plans.</p>
-        </div>
-      </div>
-
-      <div class="panel notes-panel">
-
-        <label for="notesArea">Today's Study Journal</label>
-
-        <textarea
-          id="notesArea"
-          placeholder="What did you study today? What mistakes did you make? What should you improve tomorrow?"
-        ></textarea>
-
-        <div class="notes-footer">
-          <span id="saveStatus">Auto-save enabled</span>
-          <button class="primary-button" id="saveNotes">Save Notes</button>
-        </div>
-
+      <div class="stat-card">
+        <span>🔥</span>
+        <strong id="scoreValue">0</strong>
+        <small>Daily Score</small>
       </div>
 
     </section>
 
-    <!-- SETTINGS -->
-    <section id="settings" class="page-section">
 
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">CUSTOMIZATION</span>
-          <h2>Settings</h2>
-          <p>Configure your study dashboard.</p>
-        </div>
+    <!-- DAILY REPORT -->
+    <section class="report-card">
+
+      <div>
+        <span class="eyebrow">END OF DAY</span>
+        <h2>Daily Report</h2>
+        <p>See how much of today's mission you completed.</p>
       </div>
 
-      <div class="settings-grid">
+      <button id="reportBtn" class="secondary-btn">
+        View Report →
+      </button>
 
-        <div class="panel setting-card">
+    </section>
 
-          <h3>🔔 Notifications</h3>
-          <p>Receive browser reminders for your study targets.</p>
 
-          <button class="secondary-button" id="enableNotifications">
-            Enable Notifications
-          </button>
+    <!-- TOOLS -->
+    <section class="tools-section">
 
-        </div>
+      <button id="tomorrowBtn">📅 Tomorrow</button>
+      <button id="notesBtn">📝 Notes</button>
+      <button id="historyBtn">📊 History</button>
+      <button id="exportBtn">⬇ Export</button>
+      <button id="importBtn">⬆ Import</button>
+      <button id="logoutBtn">↪ Logout</button>
 
-        <div class="panel setting-card">
-
-          <h3>💾 Data Management</h3>
-          <p>Export your study data or restore a previous backup.</p>
-
-          <div class="button-row">
-            <button class="secondary-button" id="exportData">
-              Export Data
-            </button>
-
-            <label class="secondary-button file-button">
-              Import Data
-              <input type="file" id="importData" accept=".json" hidden>
-            </label>
-          </div>
-
-        </div>
-
-        <div class="panel setting-card danger-card">
-
-          <h3>⚠️ Reset Data</h3>
-          <p>Delete all targets, history and notes from this browser.</p>
-
-          <button class="danger-button" id="resetData">
-            Reset Everything
-          </button>
-
-        </div>
-
-      </div>
+      <input id="importFile" type="file" accept=".json" hidden>
 
     </section>
 
   </main>
 
-  <!-- ADD TARGET MODAL -->
-  <div class="modal-overlay" id="targetModal">
+</section>
 
-    <div class="modal">
 
-      <div class="modal-header">
-        <div>
-          <span class="eyebrow">NEW TARGET</span>
-          <h2>Add Study Target</h2>
-        </div>
+<!-- ================= MODAL ================= -->
 
-        <button class="close-modal" id="closeModal">×</button>
-      </div>
+<div id="modalOverlay" class="modal-overlay hidden">
 
-      <form id="targetForm">
+  <div class="modal">
 
-        <label>
-          Subject
-          <select id="subjectInput" required>
-            <option value="Physics">Physics</option>
-            <option value="Chemistry">Chemistry</option>
-            <option value="Mathematics">Mathematics</option>
-            <option value="Biology">Biology</option>
-            <option value="English">English</option>
-            <option value="Other">Other</option>
-          </select>
-        </label>
+    <button id="closeModal" class="close-btn">×</button>
 
-        <label>
-          Target
-          <input
-            type="text"
-            id="targetInput"
-            placeholder="e.g. Complete Electrostatics PYQs"
-            required
-          >
-        </label>
-
-        <label>
-          Priority
-          <select id="priorityInput">
-            <option value="High">High</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="Low">Low</option>
-          </select>
-        </label>
-
-        <label>
-          Reminder Time
-          <input type="time" id="reminderInput">
-        </label>
-
-        <div class="modal-actions">
-          <button type="button" class="secondary-button" id="cancelModal">
-            Cancel
-          </button>
-
-          <button type="submit" class="primary-button">
-            Add Target
-          </button>
-        </div>
-
-      </form>
-
-    </div>
+    <div id="modalContent"></div>
 
   </div>
 
-  <script src="data.js"></script>
-  <script src="script.js"></script>
+</div>
+
+
+<script src="data.js"></script>
+<script src="script.js"></script>
 
 </body>
 </html>
-```
