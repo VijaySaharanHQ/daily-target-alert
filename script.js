@@ -1,1272 +1,1677 @@
-```javascript
 /* ==========================================
-   DAILY TARGET ALERT
-   JEE / NEET STUDY DASHBOARD
+   DAILY TARGET ALERT V2
+   Main Application
 ========================================== */
 
-const STORAGE_KEY = APP_CONFIG.storageKey;
+const STORAGE_KEY = "dailyTargetAlertV2";
 
-let data = loadData();
+let state = loadState();
+
+let timerInterval = null;
+let timerSeconds = 0;
+let timerRunning = false;
+let timerTargetId = null;
+let timerStartedAt = null;
+let totalSessionSeconds = 0;
+
+
+/* ==========================================
+   DOM
+========================================== */
 
 const $ = id => document.getElementById(id);
 
-const todayKey = () => {
-  const d = new Date();
+const loginScreen = $("loginScreen");
+const appScreen = $("appScreen");
 
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0")
-  ].join("-");
-};
+const profileForm = $("profileForm");
 
-const today = todayKey();
+const firstNameInput = $("firstName");
+const lastNameInput = $("lastName");
+const targetYearInput = $("targetYear");
+
+const userName = $("userName");
+const todayDate = $("todayDate");
+
+const targetQueue = $("targetQueue");
+
+const currentTargetTitle = $("currentTargetTitle");
+const currentSubject = $("currentSubject");
+const currentChapter = $("currentChapter");
+const currentSubjectIcon = $("currentSubjectIcon");
+const currentDuration = $("currentDuration");
+
+const startTargetBtn = $("startTargetBtn");
+const skipTargetBtn = $("skipTargetBtn");
+
+const focusPanel = $("focusPanel");
+const focusTitle = $("focusTitle");
+const focusSubject = $("focusSubject");
+const focusTimer = $("focusTimer");
+const pauseBtn = $("pauseBtn");
+const completeBtn = $("completeBtn");
+
+const modalOverlay = $("modalOverlay");
+const modalContent = $("modalContent");
+const closeModal = $("closeModal");
+
 
 /* ==========================================
-   STORAGE
+   STATE
 ========================================== */
 
-function loadData() {
+function createInitialState() {
+
+  return {
+    profile: null,
+
+    date: getToday(),
+
+    targets: [],
+
+    completedToday: 0,
+
+    studySeconds: 0,
+
+    score: 0,
+
+    streak: 0,
+
+    history: [],
+
+    tomorrowTargets: [],
+
+    notes: "",
+
+    theme: "dark"
+  };
+
+}
+
+
+function loadState() {
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+
+  if (!saved) {
+    return createInitialState();
+  }
 
   try {
-
-    const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (!saved) {
-      return structuredClone(APP_CONFIG.defaultData);
-    }
 
     const parsed = JSON.parse(saved);
 
     return {
-      ...structuredClone(APP_CONFIG.defaultData),
-      ...parsed,
-      settings: {
-        ...APP_CONFIG.defaultData.settings,
-        ...(parsed.settings || {})
-      }
+      ...createInitialState(),
+      ...parsed
     };
 
-  } catch (error) {
+  } catch {
 
-    console.error(error);
+    return createInitialState();
 
-    return structuredClone(APP_CONFIG.defaultData);
   }
+
 }
 
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+function saveState() {
+
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(state)
+  );
+
 }
+
 
 /* ==========================================
-   INIT
+   LOGIN
 ========================================== */
 
-document.addEventListener("DOMContentLoaded", () => {
+let selectedExam = "JEE";
 
-  initializeTheme();
-  initializeNavigation();
-  initializeExamSwitch();
-  initializeModal();
-  initializeTargets();
-  initializeNotes();
-  initializeSettings();
-  initializeNotifications();
-  initializeDeadline();
 
-  updateDate();
-  updateClock();
-  updateCountdown();
-  updateDashboard();
+document.querySelectorAll(".exam-btn").forEach(button => {
 
-  setInterval(updateClock, 1000);
-  setInterval(updateCountdown, 1000);
+  button.addEventListener("click", () => {
 
-  checkReminderTargets();
+    document.querySelectorAll(".exam-btn")
+      .forEach(btn => btn.classList.remove("active"));
 
-  setInterval(checkReminderTargets, 30000);
+    button.classList.add("active");
+
+    selectedExam = button.dataset.exam;
+
+  });
 
 });
 
-/* ==========================================
-   THEME
-========================================== */
 
-function initializeTheme() {
-
-  if (data.settings.darkMode) {
-    document.body.classList.add("dark");
-  }
-
-  $("modeToggle").addEventListener("click", toggleTheme);
-}
-
-function toggleTheme() {
-
-  document.body.classList.toggle("dark");
-
-  data.settings.darkMode =
-    document.body.classList.contains("dark");
-
-  saveData();
-
-  $("modeToggle").textContent =
-    data.settings.darkMode
-      ? "☀️ Light Mode"
-      : "🌙 Dark Mode";
-}
-
-/* ==========================================
-   NAVIGATION
-========================================== */
-
-function initializeNavigation() {
-
-  document.querySelectorAll(".nav-item")
-    .forEach(button => {
-
-      button.addEventListener("click", () => {
-
-        const section = button.dataset.section;
-
-        showSection(section);
-
-        document
-          .querySelector(".sidebar")
-          .classList.remove("open");
-
-      });
-
-    });
-
-  $("mobileMenu").addEventListener("click", () => {
-    $("sidebar").classList.toggle("open");
-  });
-}
-
-function showSection(section) {
-
-  document
-    .querySelectorAll(".page-section")
-    .forEach(page => page.classList.remove("active"));
-
-  document
-    .querySelectorAll(".nav-item")
-    .forEach(button => button.classList.remove("active"));
-
-  const page = $(section);
-
-  if (page) page.classList.add("active");
-
-  const navButton =
-    document.querySelector(`[data-section="${section}"]`);
-
-  if (navButton) navButton.classList.add("active");
-
-  const titles = {
-    dashboard: "Daily Dashboard",
-    targets: "My Targets",
-    history: "Study History",
-    analytics: "Analytics",
-    notes: "Study Notes",
-    settings: "Settings"
-  };
-
-  $("pageTitle").textContent =
-    titles[section] || "Daily Dashboard";
-
-  if (section === "history") renderHistory();
-  if (section === "analytics") renderAnalytics();
-  if (section === "targets") renderAllTargets();
-}
-
-/* ==========================================
-   EXAM SWITCH
-========================================== */
-
-function initializeExamSwitch() {
-
-  document.querySelectorAll(".exam-btn")
-    .forEach(button => {
-
-      button.addEventListener("click", () => {
-
-        document
-          .querySelectorAll(".exam-btn")
-          .forEach(btn => btn.classList.remove("active"));
-
-        button.classList.add("active");
-
-        data.exam = button.dataset.exam;
-
-        saveData();
-
-        showToast(
-          `${data.exam} mode activated 🎯`
-        );
-
-      });
-
-    });
-
-  document
-    .querySelectorAll(".exam-btn")
-    .forEach(btn => {
-
-      btn.classList.toggle(
-        "active",
-        btn.dataset.exam === data.exam
-      );
-
-    });
-}
-
-/* ==========================================
-   DATE / CLOCK
-========================================== */
-
-function updateDate() {
-
-  const date = new Date();
-
-  $("todayDate").textContent =
-    date.toLocaleDateString(
-      "en-IN",
-      {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }
-    );
-}
-
-function updateClock() {
-
-  const now = new Date();
-
-  $("liveClock").textContent =
-    now.toLocaleTimeString(
-      "en-IN",
-      {
-        hour12: false
-      }
-    );
-}
-
-/* ==========================================
-   COUNTDOWN
-========================================== */
-
-function initializeDeadline() {
-
-  const savedDeadline =
-    data.settings.deadline || APP_CONFIG.defaultDeadline;
-
-  $("deadlineInput").value = savedDeadline;
-
-  $("deadlineInput").addEventListener("change", event => {
-
-    data.settings.deadline = event.target.value;
-
-    saveData();
-
-    updateCountdown();
-
-    showToast("Deadline updated ⏰");
-  });
-}
-
-function updateCountdown() {
-
-  const deadline =
-    data.settings.deadline || "23:00";
-
-  const [hours, minutes] =
-    deadline.split(":").map(Number);
-
-  const now = new Date();
-
-  const target = new Date();
-
-  target.setHours(hours, minutes, 0, 0);
-
-  let difference =
-    target.getTime() - now.getTime();
-
-  if (difference < 0) {
-
-    difference = 0;
-
-    $("deadlineStatus").textContent = "DEADLINE PASSED";
-
-    $("deadlineStatus").style.background =
-      "#fef2f2";
-
-    $("deadlineStatus").style.color =
-      "#dc2626";
-
-  } else {
-
-    $("deadlineStatus").textContent = "ON TRACK";
-
-    $("deadlineStatus").style.background =
-      "#ecfdf5";
-
-    $("deadlineStatus").style.color =
-      "#059669";
-  }
-
-  const totalSeconds =
-    Math.floor(difference / 1000);
-
-  const h =
-    Math.floor(totalSeconds / 3600);
-
-  const m =
-    Math.floor((totalSeconds % 3600) / 60);
-
-  const s =
-    totalSeconds % 60;
-
-  $("hours").textContent =
-    String(h).padStart(2, "0");
-
-  $("minutes").textContent =
-    String(m).padStart(2, "0");
-
-  $("seconds").textContent =
-    String(s).padStart(2, "0");
-}
-
-/* ==========================================
-   MODAL
-========================================== */
-
-function initializeModal() {
-
-  ["openAddTarget", "emptyAddButton", "targetsAddButton"]
-    .forEach(id => {
-
-      const button = $(id);
-
-      if (button) {
-        button.addEventListener("click", openModal);
-      }
-
-    });
-
-  $("closeModal").addEventListener("click", closeModal);
-  $("cancelModal").addEventListener("click", closeModal);
-
-  $("targetModal").addEventListener("click", event => {
-
-    if (event.target === $("targetModal")) {
-      closeModal();
-    }
-
-  });
-
-  $("targetForm").addEventListener(
-    "submit",
-    addTarget
-  );
-}
-
-function openModal() {
-
-  $("targetModal").classList.add("show");
-
-  $("targetInput").focus();
-}
-
-function closeModal() {
-
-  $("targetModal").classList.remove("show");
-
-  $("targetForm").reset();
-}
-
-/* ==========================================
-   TARGETS
-========================================== */
-
-function initializeTargets() {
-
-  renderTargets();
-}
-
-function addTarget(event) {
+profileForm.addEventListener("submit", event => {
 
   event.preventDefault();
 
-  const target = {
+  const first = firstNameInput.value.trim();
+  const last = lastNameInput.value.trim();
+  const year = targetYearInput.value;
 
-    id:
-      Date.now().toString(),
+  if (!first || !last) return;
 
-    subject:
-      $("subjectInput").value,
-
-    title:
-      $("targetInput").value.trim(),
-
-    priority:
-      $("priorityInput").value,
-
-    reminder:
-      $("reminderInput").value,
-
-    completed:
-      false,
-
-    createdAt:
-      new Date().toISOString(),
-
-    date:
-      today
-
+  state.profile = {
+    firstName: first,
+    lastName: last,
+    exam: selectedExam,
+    year
   };
 
-  if (!target.title) return;
+  state.date = getToday();
 
-  data.targets.push(target);
+  if (!state.targets.length) {
 
-  saveData();
-
-  closeModal();
-
-  renderTargets();
-  updateDashboard();
-
-  showToast("Target added successfully 🎯");
-}
-
-function renderTargets() {
-
-  const list = $("targetList");
-  const allList = $("allTargets");
-
-  const todaysTargets =
-    data.targets.filter(
-      target => target.date === today
+    state.targets = cloneTargets(
+      DEFAULT_TARGETS[selectedExam]
     );
 
-  renderTargetContainer(
-    list,
-    todaysTargets
-  );
-
-  if (allList) {
-
-    renderTargetContainer(
-      allList,
-      data.targets
-    );
   }
 
-  $("emptyTargets").style.display =
-    todaysTargets.length
-      ? "none"
-      : "block";
+  saveState();
+
+  showApp();
+
+});
+
+
+function cloneTargets(targets) {
+
+  return targets.map(target => ({
+    ...target,
+    id: crypto.randomUUID()
+  }));
+
 }
 
-function renderAllTargets() {
 
-  renderTargetContainer(
-    $("allTargets"),
-    data.targets
-  );
+/* ==========================================
+   APP START
+========================================== */
+
+function showApp() {
+
+  loginScreen.classList.add("hidden");
+  appScreen.classList.remove("hidden");
+
+  applyTheme();
+
+  updateUI();
+
+  requestNotifications();
+
 }
 
-function renderTargetContainer(
-  container,
-  targets
-) {
 
-  if (!container) return;
+function showLogin() {
 
-  container.innerHTML = "";
+  appScreen.classList.add("hidden");
+  loginScreen.classList.remove("hidden");
 
-  if (!targets.length) {
+}
 
-    container.innerHTML = `
-      <div class="empty-state">
-        <div>📚</div>
-        <h3>No targets available</h3>
-        <p>Create a target to begin.</p>
+
+/* ==========================================
+   DAILY RESET
+========================================== */
+
+function checkNewDay() {
+
+  const today = getToday();
+
+  if (state.date === today) return;
+
+  if (state.targets.length) {
+
+    const completed = state.targets.filter(t => t.completed).length;
+
+    state.history.push({
+      date: state.date,
+      completed,
+      total: state.targets.length,
+      studySeconds: state.studySeconds,
+      score: state.score
+    });
+
+  }
+
+  state.date = today;
+
+  state.targets = [];
+
+  state.completedToday = 0;
+
+  state.studySeconds = 0;
+
+  state.score = 0;
+
+  saveState();
+
+}
+
+
+/* ==========================================
+   UI
+========================================== */
+
+function updateUI() {
+
+  checkNewDay();
+
+  const profile = state.profile;
+
+  if (!profile) return;
+
+  userName.textContent = profile.firstName;
+
+  todayDate.textContent = formatDate(new Date());
+
+  $("streakValue").textContent = state.streak;
+
+  renderCurrentTarget();
+
+  renderQueue();
+
+  updateStats();
+
+  $("profileBtn").textContent =
+    profile.firstName.charAt(0).toUpperCase();
+
+}
+
+
+function renderCurrentTarget() {
+
+  const target = getCurrentTarget();
+
+  if (!target) {
+
+    currentTargetTitle.textContent =
+      "Today's mission completed 🎉";
+
+    currentSubject.textContent = "All Done";
+
+    currentChapter.textContent =
+      "Excellent work. You completed your queue.";
+
+    currentSubjectIcon.textContent = "🏆";
+
+    currentDuration.textContent = "DONE";
+
+    startTargetBtn.disabled = true;
+
+    return;
+
+  }
+
+  startTargetBtn.disabled = false;
+
+  currentTargetTitle.textContent = target.title;
+
+  currentSubject.textContent = target.subject;
+
+  currentChapter.textContent = target.chapter;
+
+  currentDuration.textContent =
+    formatMinutes(target.duration);
+
+  const subjectData =
+    SUBJECT_DATA[state.profile.exam]?.[target.subject];
+
+  currentSubjectIcon.textContent =
+    subjectData?.icon || "📚";
+
+}
+
+
+function renderQueue() {
+
+  targetQueue.innerHTML = "";
+
+  if (!state.targets.length) {
+
+    targetQueue.innerHTML = `
+      <div class="target-item">
+        <div class="target-number">+</div>
+        <div>
+          <h3>No targets for today</h3>
+          <p>Add your first target.</p>
+        </div>
       </div>
     `;
 
     return;
   }
 
-  targets
-    .slice()
-    .reverse()
-    .forEach(target => {
 
-      const item =
-        document.createElement("div");
+  state.targets
+    .sort((a,b) => a.order - b.order)
+    .forEach((target,index) => {
 
-      item.className =
-        `target-item ${
-          target.completed ? "completed" : ""
-        }`;
+      const div = document.createElement("div");
 
-      item.innerHTML = `
+      div.className =
+        `target-item ${target.completed ? "completed" : ""}`;
 
-        <input
-          class="target-check"
-          type="checkbox"
-          ${target.completed ? "checked" : ""}
-          data-id="${target.id}"
-        >
+      div.innerHTML = `
 
-        <div class="target-info">
-
-          <strong>
-            ${escapeHTML(target.title)}
-          </strong>
-
-          <small>
-            ${escapeHTML(target.subject)}
-            ${target.reminder
-              ? ` • ⏰ ${target.reminder}`
-              : ""}
-          </small>
-
+        <div class="target-number">
+          ${index + 1}
         </div>
 
         <div>
+          <h3>${escapeHTML(target.title)}</h3>
+          <p>
+            ${escapeHTML(target.subject)}
+            •
+            ${escapeHTML(target.chapter)}
+            •
+            ${target.duration} min
+          </p>
+        </div>
 
-          <span class="priority ${target.priority}">
-            ${target.priority}
-          </span>
+        <div class="target-actions">
 
-          <button
-            class="delete-target"
-            data-delete="${target.id}"
-            title="Delete"
-          >
-            🗑️
-          </button>
+          ${
+            target.completed
+              ? `<button disabled>✓ Done</button>`
+              : `<button onclick="startSpecificTarget('${target.id}')">▶</button>`
+          }
+
+          <button onclick="editTarget('${target.id}')">✎</button>
+
+          <button onclick="deleteTarget('${target.id}')">×</button>
 
         </div>
       `;
 
-      container.appendChild(item);
+      targetQueue.appendChild(div);
 
     });
 
-  container
-    .querySelectorAll(".target-check")
-    .forEach(check => {
-
-      check.addEventListener(
-        "change",
-        () => toggleTarget(check.dataset.id)
-      );
-
-    });
-
-  container
-    .querySelectorAll("[data-delete]")
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () => deleteTarget(button.dataset.delete)
-      );
-
-    });
 }
 
-function toggleTarget(id) {
 
-  const target =
-    data.targets.find(t => t.id === id);
+function updateStats() {
+
+  const completed =
+    state.targets.filter(t => t.completed).length;
+
+  const total = state.targets.length;
+
+  $("completedCount").textContent = completed;
+
+  $("studyTime").textContent =
+    formatStudyTime(state.studySeconds);
+
+  $("completionRate").textContent =
+    total
+      ? Math.round((completed / total) * 100) + "%"
+      : "0%";
+
+  $("scoreValue").textContent =
+    state.score;
+
+}
+
+
+/* ==========================================
+   TARGET MANAGEMENT
+========================================== */
+
+function getCurrentTarget() {
+
+  return state.targets
+    .filter(t => !t.completed)
+    .sort((a,b) => a.order - b.order)[0];
+
+}
+
+
+startTargetBtn.addEventListener("click", () => {
+
+  const target = getCurrentTarget();
 
   if (!target) return;
 
-  target.completed =
-    !target.completed;
+  startFocus(target);
 
-  saveData();
+});
 
-  renderTargets();
-  updateDashboard();
 
-  if (target.completed) {
+function startSpecificTarget(id) {
 
-    showToast("Target completed! 🔥");
+  const target =
+    state.targets.find(t => t.id === id);
 
-    updateDailyHistory();
-  }
+  if (!target || target.completed) return;
+
+  startFocus(target);
+
 }
+
+
+function startFocus(target) {
+
+  timerTargetId = target.id;
+
+  timerSeconds = 0;
+
+  totalSessionSeconds = 0;
+
+  timerRunning = true;
+
+  timerStartedAt = Date.now();
+
+  focusPanel.classList.remove("hidden");
+
+  focusTitle.textContent = target.title;
+
+  focusSubject.textContent =
+    `${target.subject} • ${target.chapter}`;
+
+  pauseBtn.textContent = "⏸ Pause";
+
+  focusTimer.textContent = "00:00:00";
+
+  clearInterval(timerInterval);
+
+  timerInterval = setInterval(runTimer,1000);
+
+  focusPanel.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+}
+
+
+function runTimer() {
+
+  if (!timerRunning) return;
+
+  timerSeconds++;
+
+  totalSessionSeconds++;
+
+  focusTimer.textContent =
+    formatClock(timerSeconds);
+
+  const target =
+    state.targets.find(t => t.id === timerTargetId);
+
+  if (target) {
+
+    const planned =
+      target.duration * 60;
+
+    const progress =
+      Math.min(
+        100,
+        (timerSeconds / planned) * 100
+      );
+
+    $("focusProgressBar").style.width =
+      progress + "%";
+
+  }
+
+}
+
+
+pauseBtn.addEventListener("click", () => {
+
+  timerRunning = !timerRunning;
+
+  pauseBtn.textContent =
+    timerRunning
+      ? "⏸ Pause"
+      : "▶ Resume";
+
+});
+
+
+completeBtn.addEventListener("click", () => {
+
+  completeCurrentTarget();
+
+});
+
+
+function completeCurrentTarget() {
+
+  const target =
+    state.targets.find(t => t.id === timerTargetId);
+
+  if (!target) return;
+
+  clearInterval(timerInterval);
+
+  timerRunning = false;
+
+  target.completed = true;
+
+  state.studySeconds += timerSeconds;
+
+  state.completedToday++;
+
+  state.score += calculateTargetScore(target);
+
+  updateStreak();
+
+  saveState();
+
+  focusPanel.classList.add("hidden");
+
+  timerTargetId = null;
+
+  timerSeconds = 0;
+
+  updateUI();
+
+  showToast(
+    `Target completed! 🔥 +${calculateTargetScore(target)} points`
+  );
+
+}
+
+
+function calculateTargetScore(target) {
+
+  const base = Math.min(30,target.duration / 2);
+
+  return Math.round(base);
+
+}
+
+
+/* ==========================================
+   SKIP / RESCHEDULE
+========================================== */
+
+skipTargetBtn.addEventListener("click", () => {
+
+  const target = getCurrentTarget();
+
+  if (!target) return;
+
+  openRescheduleModal(target);
+
+});
+
+
+function openRescheduleModal(target) {
+
+  openModal(`
+
+    <h2>Reschedule Target</h2>
+
+    <p style="color:var(--muted);margin-bottom:20px">
+      What do you want to do with this target?
+    </p>
+
+    <div style="display:grid;gap:10px">
+
+      <button class="primary-btn"
+        onclick="moveTargetLater('${target.id}')">
+        Move to Later
+      </button>
+
+      <button class="secondary-btn"
+        onclick="moveTargetTomorrow('${target.id}')">
+        Move to Tomorrow
+      </button>
+
+      <button class="secondary-btn"
+        onclick="deleteTarget('${target.id}');closeModalWindow()">
+        Remove Target
+      </button>
+
+    </div>
+  `);
+
+}
+
+
+function moveTargetLater(id) {
+
+  const index =
+    state.targets.findIndex(t => t.id === id);
+
+  if (index === -1) return;
+
+  const [target] =
+    state.targets.splice(index,1);
+
+  target.order =
+    Math.max(...state.targets.map(t => t.order),0) + 1;
+
+  state.targets.push(target);
+
+  saveState();
+
+  closeModalWindow();
+
+  updateUI();
+
+}
+
+
+function moveTargetTomorrow(id) {
+
+  const index =
+    state.targets.findIndex(t => t.id === id);
+
+  if (index === -1) return;
+
+  const [target] =
+    state.targets.splice(index,1);
+
+  state.tomorrowTargets.push(target);
+
+  saveState();
+
+  closeModalWindow();
+
+  updateUI();
+
+  showToast("Moved to tomorrow 📅");
+
+}
+
+
+/* ==========================================
+   ADD TARGET
+========================================== */
+
+$("addTargetBtn").addEventListener(
+  "click",
+  openAddTarget
+);
+
+
+function openAddTarget() {
+
+  const subjects =
+    Object.keys(
+      SUBJECT_DATA[state.profile.exam]
+    );
+
+  openModal(`
+
+    <h2>Add Target</h2>
+
+    <form id="targetForm" class="modal-form">
+
+      <input
+        name="title"
+        placeholder="Target title"
+        required
+      >
+
+      <select name="subject">
+
+        ${subjects.map(subject =>
+          `<option>${subject}</option>`
+        ).join("")}
+
+      </select>
+
+      <input
+        name="chapter"
+        placeholder="Chapter / Topic"
+        required
+      >
+
+      <input
+        name="duration"
+        type="number"
+        min="5"
+        value="45"
+        placeholder="Minutes"
+        required
+      >
+
+      <button class="primary-btn">
+        Add Target
+      </button>
+
+    </form>
+  `);
+
+
+  $("targetForm").addEventListener(
+    "submit",
+    event => {
+
+      event.preventDefault();
+
+      const form =
+        new FormData(event.target);
+
+      const target = {
+
+        id: crypto.randomUUID(),
+
+        title: form.get("title"),
+
+        subject: form.get("subject"),
+
+        chapter: form.get("chapter"),
+
+        duration:
+          Number(form.get("duration")),
+
+        completed: false,
+
+        order:
+          Math.max(
+            ...state.targets.map(t => t.order),
+            0
+          ) + 1
+
+      };
+
+      state.targets.push(target);
+
+      saveState();
+
+      closeModalWindow();
+
+      updateUI();
+
+      showToast("Target added 🎯");
+
+    }
+  );
+
+}
+
+
+/* ==========================================
+   EDIT TARGET
+========================================== */
+
+function editTarget(id) {
+
+  const target =
+    state.targets.find(t => t.id === id);
+
+  if (!target) return;
+
+  const subjects =
+    Object.keys(
+      SUBJECT_DATA[state.profile.exam]
+    );
+
+  openModal(`
+
+    <h2>Edit Target</h2>
+
+    <form id="editTargetForm" class="modal-form">
+
+      <input
+        name="title"
+        value="${escapeAttr(target.title)}"
+        required
+      >
+
+      <select name="subject">
+
+        ${subjects.map(subject =>
+          `<option ${subject === target.subject ? "selected" : ""}>
+            ${subject}
+          </option>`
+        ).join("")}
+
+      </select>
+
+      <input
+        name="chapter"
+        value="${escapeAttr(target.chapter)}"
+        required
+      >
+
+      <input
+        name="duration"
+        type="number"
+        min="5"
+        value="${target.duration}"
+        required
+      >
+
+      <button class="primary-btn">
+        Save Changes
+      </button>
+
+    </form>
+  `);
+
+
+  $("editTargetForm").addEventListener(
+    "submit",
+    event => {
+
+      event.preventDefault();
+
+      const form =
+        new FormData(event.target);
+
+      target.title =
+        form.get("title");
+
+      target.subject =
+        form.get("subject");
+
+      target.chapter =
+        form.get("chapter");
+
+      target.duration =
+        Number(form.get("duration"));
+
+      saveState();
+
+      closeModalWindow();
+
+      updateUI();
+
+    }
+  );
+
+}
+
+
+/* ==========================================
+   DELETE
+========================================== */
 
 function deleteTarget(id) {
 
   const target =
-    data.targets.find(t => t.id === id);
+    state.targets.find(t => t.id === id);
 
   if (!target) return;
 
-  const confirmed =
-    confirm(
-      `Delete "${target.title}"?`
+  if (!confirm(
+    `Delete "${target.title}"?`
+  )) return;
+
+  state.targets =
+    state.targets.filter(
+      t => t.id !== id
     );
 
-  if (!confirmed) return;
+  saveState();
 
-  data.targets =
-    data.targets.filter(
-      target => target.id !== id
-    );
+  updateUI();
 
-  saveData();
-
-  renderTargets();
-  updateDashboard();
-
-  showToast("Target deleted");
 }
 
+
 /* ==========================================
-   DASHBOARD
+   DAILY REPORT
 ========================================== */
 
-function updateDashboard() {
+$("reportBtn").addEventListener(
+  "click",
+  showDailyReport
+);
 
-  const todaysTargets =
-    data.targets.filter(
-      target => target.date === today
-    );
+
+function showDailyReport() {
+
+  const completed =
+    state.targets.filter(t => t.completed).length;
 
   const total =
-    todaysTargets.length;
+    state.targets.length;
 
-  const completed =
-    todaysTargets.filter(
-      target => target.completed
-    ).length;
-
-  const remaining =
-    total - completed;
-
-  const percentage =
-    total === 0
-      ? 0
-      : Math.round(
-          completed / total * 100
-        );
-
-  $("totalTargets").textContent =
-    total;
-
-  $("completedTargets").textContent =
-    completed;
-
-  $("remainingTargets").textContent =
-    remaining;
-
-  $("progressPercent").textContent =
-    `${percentage}%`;
-
-  $("ringPercent").textContent =
-    `${percentage}%`;
-
-  $("progressRing").style.background =
-    `conic-gradient(
-      var(--primary) ${percentage}%,
-      #e5e7eb ${percentage}%
-    )`;
-
-  const streak =
-    calculateCurrentStreak();
-
-  $("dashboardStreak").textContent =
-    streak;
-
-  $("sideStreak").textContent =
-    `${streak} Day${streak === 1 ? "" : "s"}`;
-
-  updateDailyHistory();
-}
-
-/* ==========================================
-   HISTORY
-========================================== */
-
-function updateDailyHistory() {
-
-  const todaysTargets =
-    data.targets.filter(
-      target => target.date === today
-    );
-
-  const total =
-    todaysTargets.length;
-
-  const completed =
-    todaysTargets.filter(
-      target => target.completed
-    ).length;
-
-  const percentage =
-    total === 0
-      ? 0
-      : Math.round(
-          completed / total * 100
-        );
-
-  data.history[today] = {
-    total,
-    completed,
-    percentage
-  };
-
-  saveData();
-}
-
-function renderHistory() {
-
-  const container =
-    $("historyGrid");
-
-  container.innerHTML = "";
-
-  const days = [];
-
-  for (let i = 6; i >= 0; i--) {
-
-    const date =
-      new Date();
-
-    date.setDate(
-      date.getDate() - i
-    );
-
-    const key =
-      formatDateKey(date);
-
-    days.push({
-      date,
-      key
-    });
-  }
-
-  days.forEach(({ date, key }) => {
-
-    const history =
-      data.history[key] || {
-        total: 0,
-        completed: 0,
-        percentage: 0
-      };
-
-    const card =
-      document.createElement("div");
-
-    card.className =
-      "history-day";
-
-    card.innerHTML = `
-
-      <span class="day">
-        ${date.toLocaleDateString(
-          "en-IN",
-          { weekday: "short" }
-        )}
-      </span>
-
-      <strong>
-        ${history.percentage}%
-      </strong>
-
-      <small>
-        ${history.completed}/${history.total}
-        targets
-      </small>
-
-    `;
-
-    container.appendChild(card);
-  });
-}
-
-/* ==========================================
-   ANALYTICS
-========================================== */
-
-function renderAnalytics() {
-
-  const allHistory =
-    Object.values(data.history);
-
-  const completed =
-    allHistory.reduce(
-      (sum, day) =>
-        sum + (day.completed || 0),
-      0
-    );
-
-  const average =
-    allHistory.length
-      ? Math.round(
-          allHistory.reduce(
-            (sum, day) =>
-              sum + (day.percentage || 0),
-            0
-          ) / allHistory.length
-        )
+  const rate =
+    total
+      ? Math.round((completed / total) * 100)
       : 0;
 
-  $("analyticsCompleted").textContent =
-    completed;
+  openModal(`
 
-  $("bestStreak").textContent =
-    calculateBestStreak();
+    <div style="text-align:center">
 
-  $("averageCompletion").textContent =
-    `${average}%`;
-
-  renderActivityChart();
-}
-
-function renderActivityChart() {
-
-  const chart =
-    $("activityChart");
-
-  chart.innerHTML = "";
-
-  for (let i = 6; i >= 0; i--) {
-
-    const date =
-      new Date();
-
-    date.setDate(
-      date.getDate() - i
-    );
-
-    const key =
-      formatDateKey(date);
-
-    const percentage =
-      data.history[key]?.percentage || 0;
-
-    const wrapper =
-      document.createElement("div");
-
-    wrapper.className =
-      "chart-bar-wrapper";
-
-    wrapper.innerHTML = `
-
-      <div class="chart-value">
-        ${percentage}%
+      <div style="font-size:55px">
+        ${rate >= 80 ? "🏆" : rate >= 50 ? "🔥" : "💪"}
       </div>
 
-      <div
-        class="chart-bar"
-        style="height:${Math.max(
-          percentage,
-          5
-        )}%"
-      ></div>
+      <h2>Today's Report</h2>
 
-      <div class="chart-label">
-        ${date.toLocaleDateString(
-          "en-IN",
-          { weekday: "short" }
-        )}
+      <p style="color:var(--muted)">
+        ${formatDate(new Date())}
+      </p>
+
+      <div class="stats-grid" style="margin-top:20px">
+
+        <div class="stat-card">
+          <strong>${completed}</strong>
+          <small>Completed</small>
+        </div>
+
+        <div class="stat-card">
+          <strong>${rate}%</strong>
+          <small>Completion</small>
+        </div>
+
+        <div class="stat-card">
+          <strong>${formatStudyTime(state.studySeconds)}</strong>
+          <small>Study Time</small>
+        </div>
+
+        <div class="stat-card">
+          <strong>${state.score}</strong>
+          <small>Score</small>
+        </div>
+
       </div>
 
-    `;
+      <button
+        class="primary-btn"
+        style="margin-top:25px;width:100%"
+        onclick="closeModalWindow()">
+        Continue
+      </button>
 
-    chart.appendChild(wrapper);
-  }
+    </div>
+
+  `);
+
 }
+
 
 /* ==========================================
-   STREAK
+   TOMORROW
 ========================================== */
 
-function calculateCurrentStreak() {
+$("tomorrowBtn").addEventListener(
+  "click",
+  () => {
 
-  let streak = 0;
+    openModal(`
 
-  const date =
-    new Date();
+      <h2>Tomorrow's Plan 📅</h2>
 
-  while (true) {
+      ${
+        state.tomorrowTargets.length
+        ?
+        state.tomorrowTargets.map(
+          t => `
+            <div class="target-item"
+                 style="margin-bottom:10px">
+              <div class="target-number">•</div>
+              <div>
+                <h3>${escapeHTML(t.title)}</h3>
+                <p>${escapeHTML(t.subject)} • ${t.duration} min</p>
+              </div>
+            </div>
+          `
+        ).join("")
+        :
+        `
+          <p style="color:var(--muted)">
+            No targets planned yet.
+          </p>
+        `
+      }
 
-    const key =
-      formatDateKey(date);
+    `);
 
-    const history =
-      data.history[key];
-
-    if (
-      history &&
-      history.total > 0 &&
-      history.percentage >= 100
-    ) {
-
-      streak++;
-
-      date.setDate(
-        date.getDate() - 1
-      );
-
-    } else {
-
-      break;
-    }
   }
+);
 
-  return streak;
-}
-
-function calculateBestStreak() {
-
-  const dates =
-    Object.keys(data.history)
-      .sort();
-
-  let best = 0;
-  let current = 0;
-
-  for (const key of dates) {
-
-    const history =
-      data.history[key];
-
-    if (
-      history &&
-      history.total > 0 &&
-      history.percentage >= 100
-    ) {
-
-      current++;
-
-      best =
-        Math.max(
-          best,
-          current
-        );
-
-    } else {
-
-      current = 0;
-    }
-  }
-
-  return best;
-}
 
 /* ==========================================
    NOTES
 ========================================== */
 
-function initializeNotes() {
+$("notesBtn").addEventListener(
+  "click",
+  () => {
 
-  $("notesArea").value =
-    data.notes[today] || "";
+    openModal(`
 
-  $("notesArea").addEventListener(
-    "input",
-    () => {
+      <h2>Study Notes 📝</h2>
 
-      data.notes[today] =
-        $("notesArea").value;
+      <textarea
+        id="notesInput"
+        class="modal-form"
+        style="width:100%;min-height:200px;background:var(--card2);color:white;border:1px solid var(--border);border-radius:12px;padding:15px"
+        placeholder="Write today's notes..."
+      >${escapeHTML(state.notes)}</textarea>
 
-      saveData();
+      <button
+        id="saveNotes"
+        class="primary-btn"
+        style="margin-top:15px;width:100%">
+        Save Notes
+      </button>
 
-      $("saveStatus").textContent =
-        "Saved automatically ✓";
+    `);
 
-    }
-  );
+    $("saveNotes").onclick = () => {
 
-  $("saveNotes").addEventListener(
-    "click",
-    () => {
+      state.notes =
+        $("notesInput").value;
 
-      data.notes[today] =
-        $("notesArea").value;
+      saveState();
 
-      saveData();
+      closeModalWindow();
 
       showToast("Notes saved 📝");
-    }
-  );
-}
+
+    };
+
+  }
+);
+
+
+/* ==========================================
+   HISTORY
+========================================== */
+
+$("historyBtn").addEventListener(
+  "click",
+  () => {
+
+    const history =
+      [...state.history].reverse();
+
+    openModal(`
+
+      <h2>Study History 📊</h2>
+
+      ${
+        history.length
+        ?
+        history.map(item => `
+
+          <div class="target-item"
+               style="margin-bottom:10px">
+
+            <div class="target-number">
+              📅
+            </div>
+
+            <div>
+
+              <h3>${item.date}</h3>
+
+              <p>
+                ${item.completed}/${item.total}
+                targets
+                •
+                ${formatStudyTime(item.studySeconds)}
+                •
+                ${item.score} points
+              </p>
+
+            </div>
+
+          </div>
+
+        `).join("")
+        :
+        `<p style="color:var(--muted)">
+          Your completed days will appear here.
+        </p>`
+      }
+
+    `);
+
+  }
+);
+
+
+/* ==========================================
+   PROFILE
+========================================== */
+
+$("profileBtn").addEventListener(
+  "click",
+  () => {
+
+    const p = state.profile;
+
+    openModal(`
+
+      <h2>Your Profile 👤</h2>
+
+      <div class="target-item">
+
+        <div class="target-number">
+          ${p.firstName.charAt(0)}
+        </div>
+
+        <div>
+
+          <h3>
+            ${escapeHTML(p.firstName)}
+            ${escapeHTML(p.lastName)}
+          </h3>
+
+          <p>
+            ${p.exam} • Target ${p.year}
+          </p>
+
+        </div>
+
+      </div>
+
+      <button
+        class="secondary-btn"
+        style="margin-top:15px;width:100%"
+        onclick="closeModalWindow()">
+        Close
+      </button>
+
+    `);
+
+  }
+);
+
 
 /* ==========================================
    NOTIFICATIONS
 ========================================== */
 
-function initializeNotifications() {
+$("notificationBtn").addEventListener(
+  "click",
+  requestNotifications
+);
 
-  $("notificationButton")
-    .addEventListener(
-      "click",
-      requestNotifications
-    );
-
-  $("enableNotifications")
-    .addEventListener(
-      "click",
-      requestNotifications
-    );
-}
 
 async function requestNotifications() {
 
   if (!("Notification" in window)) {
 
     showToast(
-      "Notifications are not supported."
+      "Browser notifications are not supported."
     );
 
     return;
+
   }
 
-  const permission =
+  if (Notification.permission === "default") {
+
     await Notification.requestPermission();
 
-  if (permission === "granted") {
+  }
 
-    data.settings.notifications =
-      true;
-
-    saveData();
+  if (Notification.permission === "granted") {
 
     new Notification(
-      "Daily Target Alert",
+      "Daily Target Alert 🎯",
       {
         body:
-          "Notifications are now enabled. Keep studying! 🔥"
+          "Notifications are enabled. Stay consistent!"
       }
     );
 
-    showToast(
-      "Notifications enabled 🔔"
-    );
+    showToast("Notifications enabled 🔔");
 
-  } else {
-
-    showToast(
-      "Notification permission denied."
-    );
   }
+
 }
 
+
 /* ==========================================
-   REMINDERS
+   TARGET ALERT CHECKER
 ========================================== */
 
-function checkReminderTargets() {
+setInterval(() => {
 
-  if (
-    !data.settings.notifications ||
-    Notification.permission !== "granted"
-  ) {
-    return;
-  }
+  const target = getCurrentTarget();
 
-  const now =
-    new Date();
+  if (!target) return;
 
-  const currentTime =
-    now.toTimeString()
-      .slice(0, 5);
+  const key =
+    `alert_${state.date}_${target.id}`;
 
-  data.targets
-    .filter(target =>
-      target.date === today &&
-      !target.completed &&
-      target.reminder === currentTime
-    )
-    .forEach(target => {
+  if (localStorage.getItem(key)) return;
+
+  /*
+    Simple in-page alert system.
+    This checks while the page is open.
+  */
+
+  const hour =
+    new Date().getHours();
+
+  if (hour >= 6) {
+
+    localStorage.setItem(key,"1");
+
+    if (
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
 
       new Notification(
-        "🎯 Target Reminder",
+        "TARGET ALERT 🎯",
         {
           body:
             `${target.subject}: ${target.title}`
         }
       );
 
-    });
-}
+    }
+
+  }
+
+},60000);
+
 
 /* ==========================================
-   SETTINGS
+   THEME
 ========================================== */
 
-function initializeSettings() {
+$("themeBtn").addEventListener(
+  "click",
+  () => {
 
-  $("exportData")
-    .addEventListener(
-      "click",
-      exportData
-    );
+    state.theme =
+      state.theme === "dark"
+        ? "light"
+        : "dark";
 
-  $("importData")
-    .addEventListener(
-      "change",
-      importData
-    );
+    saveState();
 
-  $("resetData")
-    .addEventListener(
-      "click",
-      resetData
-    );
-}
+    applyTheme();
 
-function exportData() {
+  }
+);
 
-  const blob =
-    new Blob(
-      [
-        JSON.stringify(
-          data,
-          null,
-          2
-        )
-      ],
-      {
-        type: "application/json"
-      }
-    );
 
-  const url =
-    URL.createObjectURL(blob);
+function applyTheme() {
 
-  const a =
-    document.createElement("a");
-
-  a.href = url;
-
-  a.download =
-    `daily-target-alert-${today}.json`;
-
-  a.click();
-
-  URL.revokeObjectURL(url);
-
-  showToast("Backup exported 💾");
-}
-
-function importData(event) {
-
-  const file =
-    event.target.files[0];
-
-  if (!file) return;
-
-  const reader =
-    new FileReader();
-
-  reader.onload = () => {
-
-    try {
-
-      const imported =
-        JSON.parse(
-          reader.result
-        );
-
-      data = {
-        ...structuredClone(
-          APP_CONFIG.defaultData
-        ),
-        ...imported
-      };
-
-      saveData();
-
-      location.reload();
-
-    } catch {
-
-      showToast(
-        "Invalid backup file."
-      );
-    }
-  };
-
-  reader.readAsText(file);
-}
-
-function resetData() {
-
-  const confirmed =
-    confirm(
-      "This will permanently delete all your targets, history and notes. Continue?"
-    );
-
-  if (!confirmed) return;
-
-  localStorage.removeItem(
-    STORAGE_KEY
+  document.body.classList.toggle(
+    "light",
+    state.theme === "light"
   );
 
-  location.reload();
+  $("themeBtn").textContent =
+    state.theme === "dark"
+      ? "🌙"
+      : "☀️";
+
 }
+
+
+/* ==========================================
+   EXPORT / IMPORT
+========================================== */
+
+$("exportBtn").addEventListener(
+  "click",
+  () => {
+
+    const blob =
+      new Blob(
+        [JSON.stringify(state,null,2)],
+        {type:"application/json"}
+      );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const a =
+      document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      `daily-target-alert-${getToday()}.json`;
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+  }
+);
+
+
+$("importBtn").addEventListener(
+  "click",
+  () => {
+
+    $("importFile").click();
+
+  }
+);
+
+
+$("importFile").addEventListener(
+  "change",
+  event => {
+
+    const file =
+      event.target.files[0];
+
+    if (!file) return;
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+
+      try {
+
+        const imported =
+          JSON.parse(reader.result);
+
+        state = imported;
+
+        saveState();
+
+        location.reload();
+
+      } catch {
+
+        alert(
+          "Invalid backup file."
+        );
+
+      }
+
+    };
+
+    reader.readAsText(file);
+
+  }
+);
+
+
+/* ==========================================
+   LOGOUT
+========================================== */
+
+$("logoutBtn").addEventListener(
+  "click",
+  () => {
+
+    if (!confirm(
+      "Logout from this device?"
+    )) return;
+
+    state.profile = null;
+
+    saveState();
+
+    location.reload();
+
+  }
+);
+
+
+/* ==========================================
+   MODAL
+========================================== */
+
+function openModal(content) {
+
+  modalContent.innerHTML = content;
+
+  modalOverlay.classList.remove(
+    "hidden"
+  );
+
+}
+
+
+function closeModalWindow() {
+
+  modalOverlay.classList.add(
+    "hidden"
+  );
+
+  modalContent.innerHTML = "";
+
+}
+
+
+closeModal.addEventListener(
+  "click",
+  closeModalWindow
+);
+
+
+modalOverlay.addEventListener(
+  "click",
+  event => {
+
+    if (event.target === modalOverlay) {
+
+      closeModalWindow();
+
+    }
+
+  }
+);
+
+
+/* ==========================================
+   STREAK
+========================================== */
+
+function updateStreak() {
+
+  const today =
+    getToday();
+
+  const lastHistory =
+    state.history[state.history.length - 1];
+
+  if (!lastHistory) {
+
+    state.streak = 1;
+
+    return;
+
+  }
+
+  const yesterday =
+    new Date();
+
+  yesterday.setDate(
+    yesterday.getDate() - 1
+  );
+
+  const yesterdayString =
+    getDateString(yesterday);
+
+  if (
+    lastHistory.date === yesterdayString
+  ) {
+
+    state.streak++;
+
+  } else if (
+    lastHistory.date !== today
+  ) {
+
+    state.streak = 1;
+
+  }
+
+}
+
 
 /* ==========================================
    HELPERS
 ========================================== */
 
-function formatDateKey(date) {
+function getToday() {
+
+  return getDateString(
+    new Date()
+  );
+
+}
+
+
+function getDateString(date) {
+
+  return date
+    .toISOString()
+    .split("T")[0];
+
+}
+
+
+function formatDate(date) {
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      weekday:"long",
+      day:"numeric",
+      month:"long",
+      year:"numeric"
+    }
+  );
+
+}
+
+
+function formatMinutes(minutes) {
+
+  if (minutes < 60) {
+
+    return `${minutes} min`;
+
+  }
+
+  const h =
+    Math.floor(minutes / 60);
+
+  const m =
+    minutes % 60;
+
+  return m
+    ? `${h}h ${m}m`
+    : `${h}h`;
+
+}
+
+
+function formatClock(seconds) {
+
+  const h =
+    Math.floor(seconds / 3600);
+
+  const m =
+    Math.floor((seconds % 3600) / 60);
+
+  const s =
+    seconds % 60;
 
   return [
-    date.getFullYear(),
-    String(
-      date.getMonth() + 1
-    ).padStart(2, "0"),
-    String(
-      date.getDate()
-    ).padStart(2, "0")
-  ].join("-");
+    h,m,s
+  ]
+  .map(
+    n => String(n).padStart(2,"0")
+  )
+  .join(":");
+
 }
+
+
+function formatStudyTime(seconds) {
+
+  const hours =
+    Math.floor(seconds / 3600);
+
+  const minutes =
+    Math.floor((seconds % 3600) / 60);
+
+  if (hours) {
+
+    return `${hours}h ${minutes}m`;
+
+  }
+
+  return `${minutes}m`;
+
+}
+
 
 function escapeHTML(value) {
 
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+
 }
 
-function showToast(message) {
 
-  const container =
-    $("toastContainer");
+function escapeAttr(value) {
+
+  return escapeHTML(value);
+
+}
+
+
+function showToast(message) {
 
   const toast =
     document.createElement("div");
 
-  toast.className =
-    "toast";
+  toast.textContent = message;
 
-  toast.textContent =
-    message;
+  Object.assign(
+    toast.style,
+    {
+      position:"fixed",
+      bottom:"25px",
+      left:"50%",
+      transform:"translateX(-50%)",
+      padding:"13px 18px",
+      background:"#171d2e",
+      color:"white",
+      border:"1px solid rgba(255,255,255,.1)",
+      borderRadius:"12px",
+      zIndex:"9999",
+      boxShadow:"0 15px 40px rgba(0,0,0,.3)",
+      fontWeight:"700"
+    }
+  );
 
-  container.appendChild(toast);
+  document.body.appendChild(toast);
 
-  setTimeout(() => {
+  setTimeout(
+    () => toast.remove(),
+    2500
+  );
 
-    toast.remove();
-
-  }, 3000);
 }
-```
+
+
+/* ==========================================
+   START
+========================================== */
+
+if (state.profile) {
+
+  showApp();
+
+} else {
+
+  loginScreen.classList.remove("hidden");
+  appScreen.classList.add("hidden");
+
+}
